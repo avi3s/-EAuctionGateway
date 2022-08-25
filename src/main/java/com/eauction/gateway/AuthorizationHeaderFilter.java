@@ -88,7 +88,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 
 	private PublicKey getPublicKey() throws NoSuchAlgorithmException, InvalidKeySpecException {
 		
-	    String rsaPublicKey = publicKey.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "");
+		String rsaPublicKey = publicKey.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "");
 	    X509EncodedKeySpec keySpec = new X509EncodedKeySpec(Base64.getDecoder().decode(rsaPublicKey));
 	    KeyFactory kf = KeyFactory.getInstance("RSA");
 	    PublicKey publicKey = kf.generatePublic(keySpec);
