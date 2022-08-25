@@ -1,5 +1,13 @@
 package com.eauction.gateway;
 
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,16 +21,18 @@ import org.springframework.web.server.ServerWebExchange;
 
 import com.google.common.net.HttpHeaders;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import reactor.core.publisher.Mono;
 
 @Component
 public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<AuthorizationHeaderFilter.Config> {
 
-	private static final Logger logger = LogManager.getLogger(AuthorizationHeaderFilter.class);
+	private static final Logger LOGGER = LogManager.getLogger(AuthorizationHeaderFilter.class);
 
-	@Value("${jwt.mac.key}")
-	private String jwtMacKey;
+	@Value("${publicKey}")
+	private String publicKey;
 	
 	@Value("${authorization.missing}")
 	private String authorizationMissing;
@@ -59,26 +69,43 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 		
 		ServerHttpResponse response = exchange.getResponse();
 		response.setStatusCode(httpStatus);
-		logger.info("onError err == {}", err);
+		LOGGER.info("onError err == {}", err);
 		return response.setComplete();
 	}
+	
+	private Jws<Claims> parseJwt(String jwtString) throws InvalidKeySpecException, NoSuchAlgorithmException {
 
+		LOGGER.info("parseJwt Start ==>> {}"+ jwtString);
+	    PublicKey publicKey = getPublicKey();
+
+	    Jws<Claims> jwt = Jwts.parserBuilder()
+	            			  .setSigningKey(publicKey)
+	            			  .build()
+	            			  .parseClaimsJws(jwtString);
+	    LOGGER.info("parseJwt End ==>> {}", jwt);
+	    return jwt;
+	}
+
+	private PublicKey getPublicKey() throws NoSuchAlgorithmException, InvalidKeySpecException {
+		
+	    String rsaPublicKey = publicKey.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "");
+	    X509EncodedKeySpec keySpec = new X509EncodedKeySpec(Base64.getDecoder().decode(rsaPublicKey));
+	    KeyFactory kf = KeyFactory.getInstance("RSA");
+	    PublicKey publicKey = kf.generatePublic(keySpec);
+	    return publicKey;
+	}
+	
 	private boolean isJwtValid(String jwt) {
 		
 		boolean returnValue = true;
-		String subject = null;
 		try {
-			//subject = Jwts.parser().setSigningKey(tokenSecret).parseClaimsJws(jwt).getBody().getSubject();
-			subject = Jwts.parserBuilder().setSigningKey(jwtMacKey.getBytes()).build().parseClaimsJws(jwt).getBody().getSubject();
-		} catch (Exception ex) {
+			returnValue = parseJwt(jwt).getBody().getId().contains("-");
+		} catch (Exception e) {
+			System.err.println(ExceptionUtils.getStackTrace(e));
 			returnValue = false;
 		}
 
-		if (subject == null || subject.isEmpty()) {
-			returnValue = false;
-		}
-		
-		logger.info("isJwtValid returnValue == {}", returnValue);
+		LOGGER.info("isJwtValid returnValue == {}", returnValue);
 
 		return returnValue;
 	}
