@@ -21,8 +21,8 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 
 	private static final Logger logger = LogManager.getLogger(AuthorizationHeaderFilter.class);
 
-	@Value("${encrypt.key}")
-	private String tokenSecret;
+	@Value("${jwt.mac.key}")
+	private String jwtMacKey;
 	
 	@Value("${authorization.missing}")
 	private String authorizationMissing;
@@ -69,7 +69,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory<Auth
 		String subject = null;
 		try {
 			//subject = Jwts.parser().setSigningKey(tokenSecret).parseClaimsJws(jwt).getBody().getSubject();
-			subject = Jwts.parserBuilder().setSigningKey(tokenSecret.getBytes()).build().parseClaimsJws(jwt).getBody().getSubject();
+			subject = Jwts.parserBuilder().setSigningKey(jwtMacKey.getBytes()).build().parseClaimsJws(jwt).getBody().getSubject();
 		} catch (Exception ex) {
 			returnValue = false;
 		}
